@@ -28,6 +28,18 @@ class Paddle(pygame.sprite.Sprite):
         # Fetch the rectangle object that has the dimensions of the image.
         self.rect = self.image.get_rect()
 
+    def moveLeft(self, pixels):
+            self.rect.x -= pixels
+            # Check that you are not going too far (off the screen)
+            if self.rect.x < 0:
+                self.rect.x = 0
+
+    def moveRight(self, pixels):
+            self.rect.x += pixels
+            # Check that you are not going too far (off the screen)
+            if self.rect.x > 700:
+                self.rect.x = 700
+
 pygame.init()
 
 score = 0
@@ -61,7 +73,14 @@ while game_running:
         if event.type == pygame.QUIT:  # If user clicked close
             game_running = False  # Flag that we are done so we exit this loop
 
-    # --- Game logic should go here
+        # Moving the paddle when the use uses the arrow keys
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            paddle.moveLeft(50)
+        if keys[pygame.K_RIGHT]:
+            paddle.moveRight(50)
+
+                # --- Game logic should go here
     all_sprites_list.update()
     # --- Drawing code should go here
     # First, clear the screen to dark blue.
