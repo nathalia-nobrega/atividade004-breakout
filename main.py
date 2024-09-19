@@ -1,10 +1,26 @@
 import pygame as pg
 import sys
 import random
+from pygame import surface
 
 # Configurações da tela
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
+
+#Configurações de Cor
+COLOR_WHITE = (255, 255, 255)
+COLOR_BLACK = (0, 0, 0)
+#BRICKS
+BLOCK_RED = (255, 0, 0)
+BLOCK_GREEN = (0, 255, 0)
+BLOCK_ORANGE = (255 * 65536 + 165 * 256 + 0)
+BLOCK_YELLOW = (255, 255, 0)
+
+#Configurações de texto
+font = pg.font.SysFont('assets/PressStart2P.ttf', 20)
+
+#Configuração de variaveis
+columms = 12
 
 # Configurações da raquete
 PADDLE_WIDTH = 50
@@ -116,9 +132,20 @@ class Ball:
     def draw(self):
         pg.draw.rect(self.screen, self.color, self.rect)
 
+#função para configurar os tijolos
+class Brick:
+    def __init__(self):
+        self.game_over = 0
+        self.live_ball = False
+        self.bricks = None
+        self.width = SCREEN_WIDTH // columms
+        self.height = 20
+
+
 # Contém o loop principal do jogo, que lida com eventos,
 # atualiza o estado do jogo e desenha os objetos na tela.
 class Game:
+    game_started = False
     def __init__(self):
         pg.init()
         self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -135,7 +162,23 @@ class Game:
             self.draw()
             self.clock.tick(60)
 
-    def handle_events(self):
+    # Desenhando texto na tela
+    # def draw_text(self, text, font1, color, x, y, surface):
+    #     textobj = font.render(text, True, color)
+    #     text_rect = textobj.get_rect()
+    #     text_rect.x = x
+    #     text_rect.y = y
+    #     surface2.blit(textobj, text_rect)
+    #     game_started = True
+    #
+    #     screen.fill(BACKGROUND_COLOR)
+    #
+    #     if not game_started:
+    #         draw_text("Pressione qualquer tecla para iniciar", font, COLOR_WHITE, screen, 150, 250)
+    #     else:
+    #         draw_text("Jogo Iniciado", font, COLOR_WHITE, screen, 300, 250)
+
+    def handle_events(self, screen):
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
@@ -166,4 +209,3 @@ if __name__ == '__main__':
     game = Game()
     game.run()
 
-#teste
