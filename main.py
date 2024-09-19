@@ -1,26 +1,29 @@
 import pygame as pg
 import sys
 import random
-from pygame import surface
 
 # Configurações da tela
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
+screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 #Configurações de Cor
 COLOR_WHITE = (255, 255, 255)
 COLOR_BLACK = (0, 0, 0)
+
 #BRICKS
-BLOCK_RED = (255, 0, 0)
-BLOCK_GREEN = (0, 255, 0)
-BLOCK_ORANGE = (255 * 65536 + 165 * 256 + 0)
-BLOCK_YELLOW = (255, 255, 0)
+BRICK_RED = (255, 0, 0)
+BRICK_GREEN = (0, 255, 0)
+BRICK_ORANGE = (255, 165, 0)
+BRICK_YELLOW = (255, 255, 0)
+brick_col = None
 
 #Configurações de texto
-font = pg.font.SysFont('assets/PressStart2P.ttf', 20)
+# font = pg.font.Font('assets/PressStart2P.ttf', 20)
 
 #Configuração de variaveis
 columms = 12
+rows = 8
 
 # Configurações da raquete
 PADDLE_WIDTH = 50
@@ -132,8 +135,9 @@ class Ball:
     def draw(self):
         pg.draw.rect(self.screen, self.color, self.rect)
 
-#função para configurar os tijolos
+#classe para configurar os tijolos
 class Brick:
+    #função principal
     def __init__(self):
         self.game_over = 0
         self.live_ball = False
@@ -141,6 +145,42 @@ class Brick:
         self.width = SCREEN_WIDTH // columms
         self.height = 20
 
+    #função pra criar os tijolos
+    def wall_create(self):
+        strength = 0
+        self.bricks = []
+        individual_bricks = []
+        for row in range(rows):
+            brick_row = []
+            for col in range(columms):
+                brick_x = col * self.width
+                brick_y = row * self.height + 70
+                rect = pg.Rect(brick_x, brick_y, self.width, self.height)
+                if row < 2:
+                    strength = 4
+                elif row < 4:
+                    strength = 3
+                elif row < 6:
+                    strength = 2
+                elif row < 8:
+                    strength = 1
+                individual_bricks = [rect, strength]
+                brick_row.append(individual_bricks)
+            self.bricks.append(brick_row)
+
+    def wall_draw(self):
+        for row in self.bricks:
+            for brick in row:
+                if brick[1] == 4:
+                    brick_col = BRICK_RED
+                elif brick[1] == 3:
+                    brick_col = BRICK_ORANGE
+                elif brick[1] == 2:
+                    brick_col = BRICK_GREEN
+                elif brick[1] == 1:
+                    brick_col = BRICK_YELLOW
+                pg.draw.rect(screen, brick_col, brick[0]) ##
+                pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
 
 # Contém o loop principal do jogo, que lida com eventos,
 # atualiza o estado do jogo e desenha os objetos na tela.
@@ -148,16 +188,17 @@ class Game:
     game_started = False
     def __init__(self):
         pg.init()
-        self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption('Breakout')
         self.clock = pg.time.Clock()
-        self.paddle = Paddle(self.screen)
-        self.ball = Ball(self.screen)
+        self.paddle = Paddle(screen)
+        self.ball = Ball(screen)
         self.paddle_shrinked = False  # Controle se a raquete já foi reduzida
+        self.brick = Brick()
+        self.brick.wall_create()
 
     def run(self):
         while True:
-            self.handle_events()
+            self.handle_events(screen)
             self.update_game_state()
             self.draw()
             self.clock.tick(60)
@@ -200,12 +241,12 @@ class Game:
             self.ball.reset(self.paddle)
 
     def draw(self):
-        self.screen.fill(BACKGROUND_COLOR)
+        screen.fill(BACKGROUND_COLOR)
         self.paddle.draw()
         self.ball.draw()
+        self.brick.wall_draw()
         pg.display.flip()
 
 if __name__ == '__main__':
     game = Game()
     game.run()
-
