@@ -1,99 +1,167 @@
-import pygame
+import pygame as pg
+import sys
+import random
 
-# Define some colors
-WHITE = (255,255,255)
-DARKBLUE = (36,90,190)
-LIGHTBLUE = (0,176,240)
-BLACK = (0,0,0)
-RED = (255,0,0)
-ORANGE = (255,100,0)
-YELLOW = (255,255,0)
+# Configurações da tela
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
 
-class Paddle(pygame.sprite.Sprite):
-    # This class represents a paddle. It derives from the "Sprite" class in Pygame.
+# Configurações da raquete
+PADDLE_WIDTH = 50
+PADDLE_HEIGHT = 15
+PADDLE_SPEED = 7
+PADDLE_COLOR = (70, 130, 180)
 
-    def __init__(self, color, width, height):
-        # Call the parent class (Sprite) constructor
-        super().__init__()
+# Configurações da bola=
+BALL_WIDTH = 15
+BALL_HEIGHT = 10
+BALL_SPEED = 3
+BALL_COLOR = (255, 255, 255)
 
-        # Pass in the color of the paddle, its width and height.
-        # Set the background color and set it to be transparent
-        self.image = pygame.Surface([width, height])
-        self.image.fill(BLACK)
-        self.image.set_colorkey(BLACK)
+BACKGROUND_COLOR = (0, 0, 0)
+MAX_BALL_SPEED_X = 7  # Velocidade máxima horizontal da bola (pode alterar se necesśario)
 
-        # Draw the paddle (a rectangle!)
-        pygame.draw.rect(self.image, color, [0, 0, width, height])
+# Controla a raquete do jogador. Ela se move horizontalmente com as teclas ← e →
+# e tem uma função para desenhá-la na tela
+class Paddle:
+    def __init__(self, screen):
+        self.screen = screen
+        self.width = PADDLE_WIDTH
+        self.height = PADDLE_HEIGHT
+        self.color = PADDLE_COLOR
+        self.rect = pg.Rect(
+            (SCREEN_WIDTH // 2) - (self.width // 2),
+            SCREEN_HEIGHT - 30,
+            self.width,
+            self.height
+        )
+        self.speed = PADDLE_SPEED
 
-        # Fetch the rectangle object that has the dimensions of the image.
-        self.rect = self.image.get_rect()
+    def move(self, keys):
+        if keys[pg.K_LEFT] and self.rect.left > 0:
+            self.rect.x -= self.speed
+        if keys[pg.K_RIGHT] and self.rect.right < SCREEN_WIDTH:
+            self.rect.x += self.speed
 
-    def moveLeft(self, pixels):
-            self.rect.x -= pixels
-            # Check that you are not going too far (off the screen)
-            if self.rect.x < 0:
-                self.rect.x = 0
+    def shrink(self):
+        # Reduz a largura da raquete pela metade
+        self.width = self.width // 2
+        self.rect.width = self.width
+        self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.width))  # Ajusta para manter a raquete na tela
 
-    def moveRight(self, pixels):
-            self.rect.x += pixels
-            # Check that you are not going too far (off the screen)
-            if self.rect.x > 700:
-                self.rect.x = 700
+    def reset(self):
+        """ Restaura a largura da raquete para o valor original. """
+        self.width = PADDLE_WIDTH
+        self.rect.width = self.width
+        self.rect.x = (SCREEN_WIDTH // 2) - (self.width // 2)  # Centraliza a raquete na tela
 
-pygame.init()
+    def draw(self):
+        pg.draw.rect(self.screen, self.color, self.rect)
 
-score = 0
-lives = 3
+# Representa a bola (quadrado). Ela se move pela tela, verifica colisões com
+# as bordas e a raquete, e reseta se cair na parte inferior da tela.
+class Ball:
+    def __init__(self, screen):
+        self.screen = screen
+        self.width = BALL_WIDTH
+        self.height = BALL_HEIGHT
+        self.color = BALL_COLOR
+        self.rect = pg.Rect(
+            (SCREEN_WIDTH // 2) - (self.width // 2),
+            SCREEN_HEIGHT // 2,
+            self.width,
+            self.height
+        )
+        self.speed_x = BALL_SPEED
+        self.speed_y = BALL_SPEED
 
-# Open a new window
-size = (800, 600)
-screen = pygame.display.set_mode(size)
-pygame.display.set_caption("Breakout Game")
+    def move(self):
+        self.rect.x += self.speed_x
+        self.rect.y += self.speed_y
 
-#This will be a list that will contain all the sprites we intend to use in our game.
-all_sprites_list = pygame.sprite.Group()
+        # Verifica colisões com as bordas da tela
+        if self.rect.left <= 0 or self.rect.right >= SCREEN_WIDTH:
+            self.speed_x = -self.speed_x
+        if self.rect.top <= 0:
+            self.speed_y = -self.speed_y
 
-#Create the Paddle
-paddle = Paddle(LIGHTBLUE, 70, 15)
-paddle.rect.x = 350
-paddle.rect.y = 560
+    def check_collision_with_paddle(self, paddle):
+        if self.rect.colliderect(paddle.rect):
+            # Calcular a posição relativa de colisão
+            relative_collision_x = (self.rect.centerx - paddle.rect.left) / paddle.width
+            # O valor varia entre -1.0 (esquerda) e 1.0 (direita)
+            offset = (relative_collision_x - 0.5) * 2
 
-# Add the paddle to the list of sprites
-all_sprites_list.add(paddle)
+            # Ajustar a velocidade horizontal de acordo com o local de colisão
+            self.speed_x += offset * MAX_BALL_SPEED_X
+            self.speed_x = max(min(self.speed_x, MAX_BALL_SPEED_X), -MAX_BALL_SPEED_X)
 
-# The loop will carry on until the user exits the game (e.g. clicks the close button).
-game_running = True
+            # Inverter a direção vertical (a bola sempre quica para cima)
+            self.speed_y = -abs(self.speed_y)
 
-# The clock will be used to control how fast the screen updates
-clock = pygame.time.Clock()
+    def reset(self, paddle):
+        # Define uma posição inicial aleatória próxima ao centro da tela
+        random_offset_x = random.randint(-100, 100)
+        random_offset_y = random.randint(-50, 50)
+        self.rect.x = (SCREEN_WIDTH // 2) - (self.width // 2) + random_offset_x
+        self.rect.y = (SCREEN_HEIGHT // 2) - (self.height // 2) + random_offset_y
 
-# -------- Main Program Loop -----------
-while game_running:
-    for event in pygame.event.get():  # User did something
-        if event.type == pygame.QUIT:  # If user clicked close
-            game_running = False  # Flag that we are done so we exit this loop
+        # Define uma direção aleatória para a bola
+        self.speed_x = random.uniform(-BALL_SPEED, BALL_SPEED)
+        self.speed_y = BALL_SPEED  # A bola sempre começa indo para baixo
 
-        # Moving the paddle when the use uses the arrow keys
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            paddle.moveLeft(50)
-        if keys[pygame.K_RIGHT]:
-            paddle.moveRight(50)
+        # Reseta a raquete
+        paddle.reset()
 
-                # --- Game logic should go here
-    all_sprites_list.update()
-    # --- Drawing code should go here
-    # First, clear the screen to dark blue.
-    screen.fill(BLACK)
-    # Display the score and the number of lives at the top of the screen
-    font = pygame.font.Font(None, 34)
-    # Now let's draw all the sprites in one go. (For now we only have 2 sprites!)
-    all_sprites_list.draw(screen)
-    # --- Update the screen with what we've drawn.
-    pygame.display.flip()
+    def draw(self):
+        pg.draw.rect(self.screen, self.color, self.rect)
 
-    # --- Limit to 60 frames per second
-    clock.tick(60)
+# Contém o loop principal do jogo, que lida com eventos,
+# atualiza o estado do jogo e desenha os objetos na tela.
+class Game:
+    def __init__(self):
+        pg.init()
+        self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pg.display.set_caption('Breakout')
+        self.clock = pg.time.Clock()
+        self.paddle = Paddle(self.screen)
+        self.ball = Ball(self.screen)
+        self.paddle_shrinked = False  # Controle se a raquete já foi reduzida
 
-# Once we have exited the main program loop we can stop the game engine:
-pygame.quit()
+    def run(self):
+        while True:
+            self.handle_events()
+            self.update_game_state()
+            self.draw()
+            self.clock.tick(60)
+
+    def handle_events(self):
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                sys.exit()
+
+    def update_game_state(self):
+        keys = pg.key.get_pressed()
+        self.paddle.move(keys)
+        self.ball.move()
+        self.ball.check_collision_with_paddle(self.paddle)
+
+        # Verifica se a bola atingiu o topo da tela e ainda não reduziu a raquete
+        if self.ball.rect.top <= 0 and not self.paddle_shrinked:
+            self.paddle.shrink()  # Reduz a raquete
+            self.paddle_shrinked = True  # Marca que a raquete já foi reduzida
+
+        # Verifica se a bola caiu fora da tela
+        if self.ball.rect.bottom >= SCREEN_HEIGHT:
+            self.ball.reset(self.paddle)
+
+    def draw(self):
+        self.screen.fill(BACKGROUND_COLOR)
+        self.paddle.draw()
+        self.ball.draw()
+        pg.display.flip()
+
+if __name__ == '__main__':
+    game = Game()
+    game.run()
