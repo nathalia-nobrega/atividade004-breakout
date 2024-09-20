@@ -57,13 +57,6 @@ def show_start_text():
             if event.type == pg.KEYDOWN:
                 waiting = False
 
-# border_thickness = 10
-#
-# def draw_border():
-#     pygame.draw.rect(screen, BRICK_RED, (0, 0, SCREEN_WIDTH, border_thickness))
-#     pygame.draw.rect(screen, BRICK_GREEN, (0, 0, border_thickness, SCREEN_HEIGHT))
-#     pygame.drwa.rect(screen, )
-
 
 # Controla a raquete do jogador. Ela se move horizontalmente com as teclas ← e →
 # e tem uma função para desenhá-la na tela
@@ -148,16 +141,13 @@ class Ball:
     def check_collision_with_brick(self, wall):
         for row in range(rows):
             for col in range(columns):
-                brick = wall.bricks[row][col][0]
-                if brick.colliderect(self.rect):
-                    wall.bricks[row][col][1] = 0
-                    wall.bricks[row][col][0] = pg.Rect(0, 0, 0, 0)
-
-                    #self.ball_score += 1 -- aqui é os pontos da bolinha
-
-                    #a bola inverte a posição pra quando ela bater no bloco, ela quicar
-                    self.speed_y = -self.speed_y
+                brick = wall.bricks[row][col]
+                if brick[1] > 0 and brick[0].colliderect(self.rect):  # Verifica se o tijolo ainda existe
+                    brick[1] = 0  # Quebra o tijolo
+                    self.speed_y = -self.speed_y  # Inverte a direção da bola
+                    self.rect.y += self.speed_y  # Move a bola para longe do tijolo
                     break
+
 
     def reset(self, paddle):
         # Define uma posição inicial aleatória próxima ao centro da tela
@@ -183,14 +173,8 @@ class Brick:
         self.game_over = 0
         self.live_ball = False
         self.bricks = None
-        self.width = SCREEN_WIDTH // columns
+        self.width = (SCREEN_WIDTH - 20) // columns
         self.height = 20
-
-        # #defining borders of the brick
-        # self.left_wall = self.xcor() - 30
-        # self.right_wall = self.xcor() + 30
-        # self.uper_wall = self.ycor() + 15
-        # self.bottom_wall = self.ycor() - 15
 
     #função pra criar os tijolos
     def wall_create(self):
@@ -200,9 +184,10 @@ class Brick:
         for row in range(rows):
             brick_row = []
             for col in range(columns):
-                brick_x = col * self.width
+                brick_x = col * self.width + 10
                 brick_y = row * self.height + 70
                 rect = pg.Rect(brick_x, brick_y, self.width, self.height)
+                #strength of bricks
                 if row < 2:
                     strength = 4
                 elif row < 4:
@@ -218,16 +203,52 @@ class Brick:
     def wall_draw(self):
         for row in self.bricks:
             for brick in row:
-                if brick[1] == 4:
-                    brick_col = BRICK_RED
-                elif brick[1] == 3:
-                    brick_col = BRICK_ORANGE
-                elif brick[1] == 2:
-                    brick_col = BRICK_GREEN
-                elif brick[1] == 1:
-                    brick_col = BRICK_YELLOW
-                pg.draw.rect(screen, brick_col, brick[0]) ##
-                pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
+                if brick[1] > 0:
+                    if brick[1] == 4:
+                        brick_col = BRICK_RED
+                    elif brick[1] == 3:
+                        brick_col = BRICK_ORANGE
+                    elif brick[1] == 2:
+                        brick_col = BRICK_GREEN
+                    elif brick[1] == 1:
+                        brick_col = BRICK_YELLOW
+                    pg.draw.rect(screen, brick_col, brick[0])  ##
+                    pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
+                else:
+                    pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
+                    pg.draw.rect(screen, COLOR_BLACK, brick[0])
+
+    #desenha a borda do jogo
+
+    def draw_border(self, width):
+        # Desenhar bordas brancas: topo, esquerda e direita
+        # Desenhar bordas brancas: topo, esquerda e direita
+        pg.draw.rect(screen, COLOR_WHITE, (0, 0, SCREEN_WIDTH, 25))  # Borda superior
+        pg.draw.rect(screen, COLOR_WHITE, (0, 0, 10, SCREEN_HEIGHT))  # Borda esquerda
+        pg.draw.rect(screen, COLOR_WHITE, (SCREEN_WIDTH - 10, 0, 10, SCREEN_HEIGHT))  # Borda direita
+
+        # Desenhar "tijolos" coloridos
+        pg.draw.rect(screen, BRICK_RED, (0, 70, SCREEN_WIDTH, 40))  # Borda superior vermelha
+        pg.draw.rect(screen, BRICK_ORANGE, (0, 110, SCREEN_WIDTH, 40))  # Borda laranja
+        pg.draw.rect(screen, BRICK_GREEN, (0, 150, SCREEN_WIDTH, 40))  # Borda verde
+        pg.draw.rect(screen, BRICK_YELLOW, (0, 190, SCREEN_WIDTH, 40))  # Borda amarela
+
+        paddle_width = 10
+        paddle_height = 30
+
+        paddle_offset = 15
+
+        # Paddle esquerdo
+        pg.draw.rect(screen, PADDLE_COLOR,
+                     (0, SCREEN_HEIGHT - paddle_height - paddle_offset, paddle_width, paddle_height))
+
+        # Paddle direito
+        pg.draw.rect(screen, PADDLE_COLOR, (
+        SCREEN_WIDTH - paddle_width, SCREEN_HEIGHT - paddle_height - paddle_offset, paddle_width, paddle_height))
+
+        # Desenhar a parede de tijolos
+        self.wall_draw()
+
 
 wall = Brick()
 
@@ -246,6 +267,7 @@ class Game:
         self.brick = Brick()
         self.brick.wall_create()
         self.font = pg.font.Font(None, 36)  # Definindo a fonte do texto
+        self.brick.draw_border(0)
 
     def run(self):
         # Exibe a tela inicial antes de começar o loop do jogo
@@ -264,7 +286,7 @@ class Game:
 
         # Adiciona o texto "Pressione qualquer tecla para começar" no centro
         text = self.font.render("Pressione qualquer tecla para começar", True, COLOR_WHITE)
-        text_rect = text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
+        text_rect = text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100))
         self.screen.blit(text, text_rect)
         pg.display.flip()
 
@@ -303,9 +325,10 @@ class Game:
 
     def draw(self):
         self.screen.fill(BACKGROUND_COLOR)
+        self.brick.draw_border(0)
+        self.brick.wall_draw()
         self.paddle.draw()
         self.ball.draw()
-        self.brick.wall_draw()
         pg.display.flip()
 
 
