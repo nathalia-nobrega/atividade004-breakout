@@ -3,6 +3,7 @@ import sys
 import random
 
 # Configurações da tela
+pg.init()
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -19,10 +20,10 @@ BRICK_YELLOW = (255, 255, 0)
 brick_col = None
 
 #Configurações de texto
-# font = pg.font.Font('assets/PressStart2P.ttf', 20)
+font = pg.font.Font("assets/PressStart2P-vaV7.ttf", 20)
 
 #Configuração de variaveis
-columms = 12
+columns = 12
 rows = 8
 
 # Configurações da raquete
@@ -39,6 +40,30 @@ BALL_COLOR = (255, 255, 255)
 
 BACKGROUND_COLOR = (0, 0, 0)
 MAX_BALL_SPEED_X = 7  # Velocidade máxima horizontal da bola (pode alterar se necesśario)
+
+#mostra o texto pra começar
+def show_start_text():
+    text = font.render("Pressione qualquer tecla para começar", True, COLOR_WHITE)
+    text_rect = text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
+    screen.blit(text, text_rect)
+    pg.display.flip()
+
+    waiting = True
+    while waiting:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                sys.exit()
+            if event.type == pg.KEYDOWN:
+                waiting = False
+
+# border_thickness = 10
+#
+# def draw_border():
+#     pygame.draw.rect(screen, BRICK_RED, (0, 0, SCREEN_WIDTH, border_thickness))
+#     pygame.draw.rect(screen, BRICK_GREEN, (0, 0, border_thickness, SCREEN_HEIGHT))
+#     pygame.drwa.rect(screen, )
+
 
 # Controla a raquete do jogador. Ela se move horizontalmente com as teclas ← e →
 # e tem uma função para desenhá-la na tela
@@ -80,6 +105,7 @@ class Paddle:
 # Representa a bola (quadrado). Ela se move pela tela, verifica colisões com
 # as bordas e a raquete, e reseta se cair na parte inferior da tela.
 class Ball:
+    #ball_score = 0 - pontos da bolinha
     def __init__(self, screen):
         self.screen = screen
         self.width = BALL_WIDTH
@@ -104,6 +130,7 @@ class Ball:
         if self.rect.top <= 0:
             self.speed_y = -self.speed_y
 
+
     def check_collision_with_paddle(self, paddle):
         if self.rect.colliderect(paddle.rect):
             # Calcular a posição relativa de colisão
@@ -117,6 +144,20 @@ class Ball:
 
             # Inverter a direção vertical (a bola sempre quica para cima)
             self.speed_y = -abs(self.speed_y)
+
+    def check_collision_with_brick(self, wall):
+        for row in range(rows):
+            for col in range(columns):
+                brick = wall.bricks[row][col][0]
+                if brick.colliderect(self.rect):
+                    wall.bricks[row][col][1] = 0
+                    wall.bricks[row][col][0] = pg.Rect(0, 0, 0, 0)
+
+                    #self.ball_score += 1 -- aqui é os pontos da bolinha
+
+                    #a bola inverte a posição pra quando ela bater no bloco, ela quicar
+                    self.speed_y = -self.speed_y
+                    break
 
     def reset(self, paddle):
         # Define uma posição inicial aleatória próxima ao centro da tela
@@ -142,8 +183,14 @@ class Brick:
         self.game_over = 0
         self.live_ball = False
         self.bricks = None
-        self.width = SCREEN_WIDTH // columms
+        self.width = SCREEN_WIDTH // columns
         self.height = 20
+
+        # #defining borders of the brick
+        # self.left_wall = self.xcor() - 30
+        # self.right_wall = self.xcor() + 30
+        # self.uper_wall = self.ycor() + 15
+        # self.bottom_wall = self.ycor() - 15
 
     #função pra criar os tijolos
     def wall_create(self):
@@ -152,7 +199,7 @@ class Brick:
         individual_bricks = []
         for row in range(rows):
             brick_row = []
-            for col in range(columms):
+            for col in range(columns):
                 brick_x = col * self.width
                 brick_y = row * self.height + 70
                 rect = pg.Rect(brick_x, brick_y, self.width, self.height)
@@ -182,44 +229,56 @@ class Brick:
                 pg.draw.rect(screen, brick_col, brick[0]) ##
                 pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
 
+wall = Brick()
+
+
 # Contém o loop principal do jogo, que lida com eventos,
 # atualiza o estado do jogo e desenha os objetos na tela.
 class Game:
-    game_started = False
     def __init__(self):
         pg.init()
+        self.screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pg.display.set_caption('Breakout')
         self.clock = pg.time.Clock()
-        self.paddle = Paddle(screen)
-        self.ball = Ball(screen)
+        self.paddle = Paddle(self.screen)
+        self.ball = Ball(self.screen)
         self.paddle_shrinked = False  # Controle se a raquete já foi reduzida
         self.brick = Brick()
         self.brick.wall_create()
+        self.font = pg.font.Font(None, 36)  # Definindo a fonte do texto
 
     def run(self):
+        # Exibe a tela inicial antes de começar o loop do jogo
+        self.show_start_screen()
+
+        # Loop principal do jogo
         while True:
-            self.handle_events(screen)
+            self.handle_events()
             self.update_game_state()
             self.draw()
             self.clock.tick(60)
 
-    # Desenhando texto na tela
-    # def draw_text(self, text, font1, color, x, y, surface):
-    #     textobj = font.render(text, True, color)
-    #     text_rect = textobj.get_rect()
-    #     text_rect.x = x
-    #     text_rect.y = y
-    #     surface2.blit(textobj, text_rect)
-    #     game_started = True
-    #
-    #     screen.fill(BACKGROUND_COLOR)
-    #
-    #     if not game_started:
-    #         draw_text("Pressione qualquer tecla para iniciar", font, COLOR_WHITE, screen, 150, 250)
-    #     else:
-    #         draw_text("Jogo Iniciado", font, COLOR_WHITE, screen, 300, 250)
+    def show_start_screen(self):
+        # Desenha o estado do jogo (blocos, raquete, bola)
+        self.draw()
 
-    def handle_events(self, screen):
+        # Adiciona o texto "Pressione qualquer tecla para começar" no centro
+        text = self.font.render("Pressione qualquer tecla para começar", True, COLOR_WHITE)
+        text_rect = text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
+        self.screen.blit(text, text_rect)
+        pg.display.flip()
+
+        # Espera até que uma tecla seja pressionada
+        waiting = True
+        while waiting:
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    pg.quit()
+                    sys.exit()
+                if event.type == pg.KEYDOWN:
+                    waiting = False
+
+    def handle_events(self):
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
@@ -228,8 +287,10 @@ class Game:
     def update_game_state(self):
         keys = pg.key.get_pressed()
         self.paddle.move(keys)
+        self.ball.draw()
         self.ball.move()
         self.ball.check_collision_with_paddle(self.paddle)
+        self.ball.check_collision_with_brick(self.brick)
 
         # Verifica se a bola atingiu o topo da tela e ainda não reduziu a raquete
         if self.ball.rect.top <= 0 and not self.paddle_shrinked:
@@ -241,12 +302,14 @@ class Game:
             self.ball.reset(self.paddle)
 
     def draw(self):
-        screen.fill(BACKGROUND_COLOR)
+        self.screen.fill(BACKGROUND_COLOR)
         self.paddle.draw()
         self.ball.draw()
         self.brick.wall_draw()
         pg.display.flip()
 
+
 if __name__ == '__main__':
+    pg.init()
     game = Game()
     game.run()
