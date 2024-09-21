@@ -4,7 +4,7 @@ import random
 
 # Configurações da tela
 pg.init()
-SCREEN_WIDTH = 540
+SCREEN_WIDTH = 560
 SCREEN_HEIGHT = 680
 screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -59,7 +59,7 @@ PADDLE_COLOR = (70, 130, 180)
 # Configurações da bola
 BALL_WIDTH = 10
 BALL_HEIGHT = 8
-BALL_SPEED = 3
+BALL_SPEED = 4
 BALL_COLOR = (255, 255, 255)
 PADDLE_DELAY = 30
 
@@ -141,6 +141,8 @@ class Ball:
                 WALL_SFX.play()
         if self.rect.top <= 25:
             self.speed_y = -self.speed_y
+            self.can_hit_brick = True
+
             if not on_menu:
                 WALL_SFX.play()
 
@@ -232,7 +234,7 @@ class Brick:
         for row in range(ROWS):
             brick_row = []
             for col in range(COLUMNS):
-                brick_x = col * self.width + 11
+                brick_x = col * self.width + 14
                 brick_y = row * self.height + 130
                 rect = pg.Rect(brick_x, brick_y, self.width, self.height)
                 #strength of bricks
