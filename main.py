@@ -8,61 +8,63 @@ SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-#Configurações de Cor
+# Configurações de Cor
 COLOR_WHITE = (255, 255, 255)
 COLOR_BLACK = (0, 0, 0)
 
-#BRICKS
+# BRICKS
 BRICK_RED = (255, 0, 0)
 BRICK_GREEN = (0, 255, 0)
 BRICK_ORANGE = (255, 165, 0)
 BRICK_YELLOW = (255, 255, 0)
-brick_col = None
 
-#Configurações de texto
-font = pg.font.Font("assets/PressStart2P-vaV7.ttf", 20)
+# Configurações de texto
+NORMAL_FONT = pg.font.Font("assets/breakout_font.ttf", 32)
 
-#Configuração de variaveis
-columns = 12
-rows = 8
+# start_text = NORMAL_FONT.render("PRESSIONE QUALQUER TECLA PARA INICIAR", True, COLOR_WHITE)
+# start_text_rect = start_text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100))
+
+points_string = NORMAL_FONT.render('000', True, COLOR_WHITE)
+points_text_rect = points_string.get_rect(center=(150, 50))
+
+attempts_string = NORMAL_FONT.render('1', True, COLOR_WHITE)
+attempts_text_rect = attempts_string.get_rect(center=(SCREEN_WIDTH - 150, 50))
+
+# Configuração de som
+PADDLE_SFX = pg.mixer.Sound("assets/ball_hit_paddle.wav")
+WALL_SFX = pg.mixer.Sound("assets/ball_hit_wall.wav")
+BRICK_SFX = pg.mixer.Sound("assets/ball_hit_block.wav")
+PADDLE_SFX.set_volume(0.5)
+WALL_SFX.set_volume(0.5)
+BRICK_SFX.set_volume(0.5)
+
+# Configuração de variaveis
+COLUMNS = 12
+ROWS = 8
+MAX_ATTEMPTS = 3
 
 # Configurações da raquete
 PADDLE_WIDTH = 50
 PADDLE_HEIGHT = 15
-PADDLE_SPEED = 7
+PADDLE_SPEED = 10
 PADDLE_COLOR = (70, 130, 180)
 
-# Configurações da bola=
+# Configurações da bola
 BALL_WIDTH = 15
 BALL_HEIGHT = 10
 BALL_SPEED = 3
 BALL_COLOR = (255, 255, 255)
+PADDLE_DELAY = 30
 
 BACKGROUND_COLOR = (0, 0, 0)
 MAX_BALL_SPEED_X = 7  # Velocidade máxima horizontal da bola (pode alterar se necesśario)
-
-#mostra o texto pra começar
-def show_start_text():
-    text = font.render("Pressione qualquer tecla para começar", True, COLOR_WHITE)
-    text_rect = text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2))
-    screen.blit(text, text_rect)
-    pg.display.flip()
-
-    waiting = True
-    while waiting:
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                pg.quit()
-                sys.exit()
-            if event.type == pg.KEYDOWN:
-                waiting = False
-
+MAX_BALL_SPEED_Y = 10  # Velocidade máxima vertical da bola (pode alterar se necesśario)
 
 # Controla a raquete do jogador. Ela se move horizontalmente com as teclas ← e →
 # e tem uma função para desenhá-la na tela
 class Paddle:
-    def __init__(self, screen):
-        self.screen = screen
+    def __init__(self, given_screen):
+        self.screen = given_screen
         self.width = PADDLE_WIDTH
         self.height = PADDLE_HEIGHT
         self.color = PADDLE_COLOR
@@ -86,6 +88,11 @@ class Paddle:
         self.rect.width = self.width
         self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.width))  # Ajusta para manter a raquete na tela
 
+    def fill(self):
+        # Faz a raquete ocupar a área toda horizontal quando em menu
+        self.rect.width = SCREEN_WIDTH
+        self.rect.x = max(0, min(0, SCREEN_WIDTH))  # Ajusta para manter a raquete na tela
+
     def reset(self):
         """ Restaura a largura da raquete para o valor original. """
         self.width = PADDLE_WIDTH
@@ -98,9 +105,8 @@ class Paddle:
 # Representa a bola (quadrado). Ela se move pela tela, verifica colisões com
 # as bordas e a raquete, e reseta se cair na parte inferior da tela.
 class Ball:
-    #ball_score = 0 - pontos da bolinha
-    def __init__(self, screen):
-        self.screen = screen
+    def __init__(self, given_screen):
+        self.screen = given_screen
         self.width = BALL_WIDTH
         self.height = BALL_HEIGHT
         self.color = BALL_COLOR
@@ -112,44 +118,79 @@ class Ball:
         )
         self.speed_x = BALL_SPEED
         self.speed_y = BALL_SPEED
+        self.score = 0
+        self.ball_hits = 0
+        self.ball_tick = 0 # Serve apenas para evitar multiplos hits quando atingir as bordas
+        self.can_hit_brick = False # Evitar bola de atingir tijolos incorretamente
 
-    def move(self):
+    def move(self, on_menu):
         self.rect.x += self.speed_x
         self.rect.y += self.speed_y
 
         # Verifica colisões com as bordas da tela
         if self.rect.left <= 0 or self.rect.right >= SCREEN_WIDTH:
             self.speed_x = -self.speed_x
+            if not on_menu:
+                WALL_SFX.play()
         if self.rect.top <= 0:
             self.speed_y = -self.speed_y
+            if not on_menu:
+                WALL_SFX.play()
 
 
-    def check_collision_with_paddle(self, paddle):
+    def check_collision_with_paddle(self, paddle, on_menu):
         if self.rect.colliderect(paddle.rect):
             # Calcular a posição relativa de colisão
             relative_collision_x = (self.rect.centerx - paddle.rect.left) / paddle.width
             # O valor varia entre -1.0 (esquerda) e 1.0 (direita)
             offset = (relative_collision_x - 0.5) * 2
 
-            # Ajustar a velocidade horizontal de acordo com o local de colisão
+            # Aumentar velocidade vertical da bola em diferentes intervalos
+            if self.ball_tick >= PADDLE_DELAY and not on_menu:
+                self.ball_tick = 0
+                self.ball_hits += 1
+                PADDLE_SFX.play()
+
+            if self.ball_hits == 4:
+                self.speed_y = abs(self.speed_y) + 2
+            elif self.ball_hits == 12:
+                self.speed_y = abs(self.speed_y) + 2
+
+            # Ajustar as velocidades de acordo com o local de colisão e velocidade máxima
             self.speed_x += offset * MAX_BALL_SPEED_X
             self.speed_x = max(min(self.speed_x, MAX_BALL_SPEED_X), -MAX_BALL_SPEED_X)
+            self.speed_y = max(min(self.speed_y, MAX_BALL_SPEED_Y), -MAX_BALL_SPEED_Y)
 
             # Inverter a direção vertical (a bola sempre quica para cima)
             self.speed_y = -abs(self.speed_y)
 
-    def check_collision_with_brick(self, wall):
-        for row in range(rows):
-            for col in range(columns):
-                brick = wall.bricks[row][col]
-                if brick[1] > 0 and brick[0].colliderect(self.rect):  # Verifica se o tijolo ainda existe
-                    brick[1] = 0  # Quebra o tijolo
-                    self.speed_y = -self.speed_y  # Inverte a direção da bola
+            # Permitir atingir tijolos novamente
+            self.can_hit_brick = True
+
+    def check_collision_with_brick(self, current_wall, on_menu):
+        for row in range(ROWS):
+            for col in range(COLUMNS):
+                brick = current_wall.bricks[row][col]
+
+                # Verificar condições do tijolo
+                if brick[1] > 0 and brick[0].colliderect(self.rect) and self.can_hit_brick:
+                    # Apenas maximiza velocidade Y se atingir tijolos laranja e vermelho
+                    if brick[1] == 3 or brick[1] == 4 and abs(self.speed_y) < MAX_BALL_SPEED_Y:
+                        self.speed_y = MAX_BALL_SPEED_Y
+                    else:
+                        self.speed_y = -self.speed_y
+
+                    if not on_menu:
+                        brick[1] = 0  # Quebra o tijolo
+                        self.score += brick[2]  # Adicionar pontos
+                        BRICK_SFX.play()
+
                     self.rect.y += self.speed_y  # Move a bola para longe do tijolo
+                    self.can_hit_brick = False
                     break
 
 
-    def reset(self, paddle):
+    def reset(self):
         # Define uma posição inicial aleatória próxima ao centro da tela
         random_offset_x = random.randint(-100, 100)
         random_offset_y = random.randint(-50, 50)
@@ -159,9 +200,8 @@ class Ball:
         # Define uma direção aleatória para a bola
         self.speed_x = random.uniform(-BALL_SPEED, BALL_SPEED)
         self.speed_y = BALL_SPEED  # A bola sempre começa indo para baixo
-
-        # Reseta a raquete
-        paddle.reset()
+        self.can_hit_brick = True
+        self.ball_hits = 0
 
     def draw(self):
         pg.draw.rect(self.screen, self.color, self.rect)
@@ -170,39 +210,45 @@ class Ball:
 class Brick:
     #função principal
     def __init__(self):
-        self.game_over = 0
         self.live_ball = False
         self.bricks = None
-        self.width = (SCREEN_WIDTH - 20) // columns
+        self.width = (SCREEN_WIDTH - 20) // COLUMNS
         self.height = 20
 
     #função pra criar os tijolos
     def wall_create(self):
         strength = 0
+        worth = 0
         self.bricks = []
-        individual_bricks = []
-        for row in range(rows):
+
+        for row in range(ROWS):
             brick_row = []
-            for col in range(columns):
+            for col in range(COLUMNS):
                 brick_x = col * self.width + 10
                 brick_y = row * self.height + 70
                 rect = pg.Rect(brick_x, brick_y, self.width, self.height)
                 #strength of bricks
                 if row < 2:
                     strength = 4
+                    worth = 7
                 elif row < 4:
                     strength = 3
+                    worth = 5
                 elif row < 6:
                     strength = 2
+                    worth = 3
                 elif row < 8:
                     strength = 1
-                individual_bricks = [rect, strength]
+                    worth = 1
+                individual_bricks = [rect, strength, worth]
                 brick_row.append(individual_bricks)
             self.bricks.append(brick_row)
 
     def wall_draw(self):
         for row in self.bricks:
             for brick in row:
+                brick_col = None
+
                 if brick[1] > 0:
                     if brick[1] == 4:
                         brick_col = BRICK_RED
@@ -220,8 +266,7 @@ class Brick:
 
     #desenha a borda do jogo
 
-    def draw_border(self, width):
-        # Desenhar bordas brancas: topo, esquerda e direita
+    def draw_border(self):
         # Desenhar bordas brancas: topo, esquerda e direita
         pg.draw.rect(screen, COLOR_WHITE, (0, 0, SCREEN_WIDTH, 25))  # Borda superior
         pg.draw.rect(screen, COLOR_WHITE, (0, 0, 10, SCREEN_HEIGHT))  # Borda esquerda
@@ -235,7 +280,6 @@ class Brick:
 
         paddle_width = 10
         paddle_height = 30
-
         paddle_offset = 15
 
         # Paddle esquerdo
@@ -252,7 +296,6 @@ class Brick:
 
 wall = Brick()
 
-
 # Contém o loop principal do jogo, que lida com eventos,
 # atualiza o estado do jogo e desenha os objetos na tela.
 class Game:
@@ -263,16 +306,19 @@ class Game:
         self.clock = pg.time.Clock()
         self.paddle = Paddle(self.screen)
         self.ball = Ball(self.screen)
-        self.paddle_shrinked = False  # Controle se a raquete já foi reduzida
         self.brick = Brick()
+
+        self.points_text = points_string
+        self.attempts_text = attempts_string
+
+        self.paddle_shrinked = False  # Controle se a raquete já foi reduzida
+        self.waiting_start = True  # Verificar se a partida foi inciada
+        self.attempts = 1
+
         self.brick.wall_create()
-        self.font = pg.font.Font(None, 36)  # Definindo a fonte do texto
-        self.brick.draw_border(0)
+        self.brick.draw_border()
 
     def run(self):
-        # Exibe a tela inicial antes de começar o loop do jogo
-        self.show_start_screen()
-
         # Loop principal do jogo
         while True:
             self.handle_events()
@@ -280,55 +326,71 @@ class Game:
             self.draw()
             self.clock.tick(60)
 
-    def show_start_screen(self):
-        # Desenha o estado do jogo (blocos, raquete, bola)
-        self.draw()
-
-        # Adiciona o texto "Pressione qualquer tecla para começar" no centro
-        text = self.font.render("Pressione qualquer tecla para começar", True, COLOR_WHITE)
-        text_rect = text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100))
-        self.screen.blit(text, text_rect)
-        pg.display.flip()
-
+    def reset_values(self):
         # Espera até que uma tecla seja pressionada
-        waiting = True
-        while waiting:
-            for event in pg.event.get():
-                if event.type == pg.QUIT:
-                    pg.quit()
-                    sys.exit()
-                if event.type == pg.KEYDOWN:
-                    waiting = False
+        self.paddle.reset()
+        self.ball.reset()
+        self.attempts = 1
+        self.ball.points = 0
+        self.paddle_shrinked = False
+        self.waiting_start = False
+        self.brick.wall_create()
 
     def handle_events(self):
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
                 sys.exit()
+            if event.type == pg.KEYDOWN and self.waiting_start:
+                self.reset_values()
 
     def update_game_state(self):
         keys = pg.key.get_pressed()
         self.paddle.move(keys)
         self.ball.draw()
-        self.ball.move()
-        self.ball.check_collision_with_paddle(self.paddle)
-        self.ball.check_collision_with_brick(self.brick)
+        self.ball.move(self.waiting_start)
+        self.ball.check_collision_with_paddle(self.paddle, self.waiting_start)
+        self.ball.check_collision_with_brick(self.brick, self.waiting_start)
+        self.ball.ball_tick += 1
 
-        # Verifica se a bola atingiu o topo da tela e ainda não reduziu a raquete
-        if self.ball.rect.top <= 0 and not self.paddle_shrinked:
-            self.paddle.shrink()  # Reduz a raquete
-            self.paddle_shrinked = True  # Marca que a raquete já foi reduzida
+        self.points_text = NORMAL_FONT.render(str("{:03d}".format(self.ball.score)), True, COLOR_WHITE)
+        self.attempts_text = NORMAL_FONT.render(str(self.attempts), True, COLOR_WHITE)
 
-        # Verifica se a bola caiu fora da tela
+        # Verifica se a bola atingiu o topo da tela
+        if self.ball.rect.top <= 0:
+            self.ball.can_hit_brick = True
+
+            if not self.paddle_shrinked and not self.waiting_start:
+                self.paddle.shrink()  # Reduz a raquete
+                self.paddle_shrinked = True  # Marca que a raquete já foi reduzida
+
+        # Verifica se a bola caiu fora da tela e aplicar punição
         if self.ball.rect.bottom >= SCREEN_HEIGHT:
-            self.ball.reset(self.paddle)
+            self.ball.reset()
+            self.paddle.reset()
+            self.attempts += 1
+            self.paddle_shrinked = False
+            self.attempts_text = NORMAL_FONT.render(str(self.attempts), True, COLOR_WHITE)
+
+            if self.attempts > MAX_ATTEMPTS:
+                # Bloqueia a partida
+                self.waiting_start = True
+
 
     def draw(self):
         self.screen.fill(BACKGROUND_COLOR)
-        self.brick.draw_border(0)
+        self.brick.draw_border()
         self.brick.wall_draw()
+        if self.waiting_start: # Mudar raquete em menu
+            self.paddle.fill()
+        else:
+            self.paddle.rect.width = PADDLE_WIDTH
+
         self.paddle.draw()
         self.ball.draw()
+        self.screen.blit(self.points_text, points_text_rect)
+        self.screen.blit(self.attempts_text, attempts_text_rect)
+
         pg.display.flip()
 
 
