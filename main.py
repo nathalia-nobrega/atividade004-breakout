@@ -4,8 +4,8 @@ import random
 
 # Configurações da tela
 pg.init()
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 540
+SCREEN_HEIGHT = 680
 screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 # Configurações de Cor
@@ -19,16 +19,23 @@ BRICK_ORANGE = (255, 165, 0)
 BRICK_YELLOW = (255, 255, 0)
 
 # Configurações de texto
-NORMAL_FONT = pg.font.Font("assets/breakout_font.ttf", 32)
+NORMAL_FONT = pg.font.Font("assets/breakout_font.ttf", 60)
 
 # start_text = NORMAL_FONT.render("PRESSIONE QUALQUER TECLA PARA INICIAR", True, COLOR_WHITE)
 # start_text_rect = start_text.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100))
 
 points_string = NORMAL_FONT.render('000', True, COLOR_WHITE)
-points_text_rect = points_string.get_rect(center=(150, 50))
+points_text_rect = points_string.get_rect(center=(110, 100))
 
 attempts_string = NORMAL_FONT.render('1', True, COLOR_WHITE)
-attempts_text_rect = attempts_string.get_rect(center=(SCREEN_WIDTH - 150, 50))
+attempts_text_rect = attempts_string.get_rect(center=(SCREEN_WIDTH - 200, 50))
+
+points_string_2 = NORMAL_FONT.render('000', True, COLOR_WHITE)
+points_text_rect_2 = points_string_2.get_rect(center=(SCREEN_WIDTH - 120, 100))
+
+attempts_string_2 = NORMAL_FONT.render('1', True, COLOR_WHITE)
+attempts_text_rect_2 = attempts_string_2.get_rect(center=(30, 50))
+
 
 # Configuração de som
 PADDLE_SFX = pg.mixer.Sound("assets/ball_hit_paddle.wav")
@@ -39,19 +46,19 @@ WALL_SFX.set_volume(0.5)
 BRICK_SFX.set_volume(0.5)
 
 # Configuração de variaveis
-COLUMNS = 12
+COLUMNS = 14
 ROWS = 8
 MAX_ATTEMPTS = 3
 
 # Configurações da raquete
-PADDLE_WIDTH = 50
-PADDLE_HEIGHT = 15
+PADDLE_WIDTH = 40
+PADDLE_HEIGHT = 14
 PADDLE_SPEED = 10
 PADDLE_COLOR = (70, 130, 180)
 
 # Configurações da bola
-BALL_WIDTH = 15
-BALL_HEIGHT = 10
+BALL_WIDTH = 10
+BALL_HEIGHT = 8
 BALL_SPEED = 3
 BALL_COLOR = (255, 255, 255)
 PADDLE_DELAY = 30
@@ -70,7 +77,7 @@ class Paddle:
         self.color = PADDLE_COLOR
         self.rect = pg.Rect(
             (SCREEN_WIDTH // 2) - (self.width // 2),
-            SCREEN_HEIGHT - 30,
+            SCREEN_HEIGHT - 46,
             self.width,
             self.height
         )
@@ -128,11 +135,11 @@ class Ball:
         self.rect.y += self.speed_y
 
         # Verifica colisões com as bordas da tela
-        if self.rect.left <= 0 or self.rect.right >= SCREEN_WIDTH:
+        if self.rect.left <= 10 or self.rect.right >= SCREEN_WIDTH - 10:
             self.speed_x = -self.speed_x
             if not on_menu:
                 WALL_SFX.play()
-        if self.rect.top <= 0:
+        if self.rect.top <= 25:
             self.speed_y = -self.speed_y
             if not on_menu:
                 WALL_SFX.play()
@@ -157,7 +164,8 @@ class Ball:
                 self.speed_y = abs(self.speed_y) + 2
 
             # Ajustar as velocidades de acordo com o local de colisão e velocidade máxima
-            self.speed_x += offset * MAX_BALL_SPEED_X
+            if not on_menu:
+                self.speed_x += offset * MAX_BALL_SPEED_X
             self.speed_x = max(min(self.speed_x, MAX_BALL_SPEED_X), -MAX_BALL_SPEED_X)
             self.speed_y = max(min(self.speed_y, MAX_BALL_SPEED_Y), -MAX_BALL_SPEED_Y)
 
@@ -213,7 +221,7 @@ class Brick:
         self.live_ball = False
         self.bricks = None
         self.width = (SCREEN_WIDTH - 20) // COLUMNS
-        self.height = 20
+        self.height = 14
 
     #função pra criar os tijolos
     def wall_create(self):
@@ -224,8 +232,8 @@ class Brick:
         for row in range(ROWS):
             brick_row = []
             for col in range(COLUMNS):
-                brick_x = col * self.width + 10
-                brick_y = row * self.height + 70
+                brick_x = col * self.width + 11
+                brick_y = row * self.height + 130
                 rect = pg.Rect(brick_x, brick_y, self.width, self.height)
                 #strength of bricks
                 if row < 2:
@@ -258,7 +266,7 @@ class Brick:
                         brick_col = BRICK_GREEN
                     elif brick[1] == 1:
                         brick_col = BRICK_YELLOW
-                    pg.draw.rect(screen, brick_col, brick[0])  ##
+                    pg.draw.rect(screen, brick_col, brick[0])
                     pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
                 else:
                     pg.draw.rect(screen, BACKGROUND_COLOR, (brick[0]), 2)
@@ -273,14 +281,14 @@ class Brick:
         pg.draw.rect(screen, COLOR_WHITE, (SCREEN_WIDTH - 10, 0, 10, SCREEN_HEIGHT))  # Borda direita
 
         # Desenhar "tijolos" coloridos
-        pg.draw.rect(screen, BRICK_RED, (0, 70, SCREEN_WIDTH, 40))  # Borda superior vermelha
-        pg.draw.rect(screen, BRICK_ORANGE, (0, 110, SCREEN_WIDTH, 40))  # Borda laranja
-        pg.draw.rect(screen, BRICK_GREEN, (0, 150, SCREEN_WIDTH, 40))  # Borda verde
-        pg.draw.rect(screen, BRICK_YELLOW, (0, 190, SCREEN_WIDTH, 40))  # Borda amarela
+        pg.draw.rect(screen, BRICK_RED, (0, 130, SCREEN_WIDTH, 28))  # Borda superior vermelha
+        pg.draw.rect(screen, BRICK_ORANGE, (0, 158, SCREEN_WIDTH, 28))  # Borda laranja
+        pg.draw.rect(screen, BRICK_GREEN, (0, 186, SCREEN_WIDTH, 28))  # Borda verde
+        pg.draw.rect(screen, BRICK_YELLOW, (0, 214, SCREEN_WIDTH, 28))  # Borda amarela
 
         paddle_width = 10
         paddle_height = 30
-        paddle_offset = 15
+        paddle_offset = 25
 
         # Paddle esquerdo
         pg.draw.rect(screen, PADDLE_COLOR,
@@ -331,7 +339,7 @@ class Game:
         self.paddle.reset()
         self.ball.reset()
         self.attempts = 1
-        self.ball.points = 0
+        self.ball.score = 0
         self.paddle_shrinked = False
         self.waiting_start = False
         self.brick.wall_create()
@@ -390,6 +398,8 @@ class Game:
         self.ball.draw()
         self.screen.blit(self.points_text, points_text_rect)
         self.screen.blit(self.attempts_text, attempts_text_rect)
+        self.screen.blit(points_string_2, points_text_rect_2)
+        self.screen.blit(attempts_string_2, attempts_text_rect_2)
 
         pg.display.flip()
 
